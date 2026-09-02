@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource path="res://main.gd" type="Script" id="1_main"]
+[ext_resource path="res://assets/audio/bg_music.wav" type="AudioStream" id="2_bgm"]
+
+[node name="TerraBlocks" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_main")
+
+[node name="BGMPlayer" type="AudioStreamPlayer" parent="."]
+process_mode = 3
+stream = ExtResource("2_bgm")
+volume_db = -8.0
+autoplay = false
+bus = &"Master"

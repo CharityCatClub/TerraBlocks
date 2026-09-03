@@ -93,19 +93,30 @@ body {
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 <script>
-// Cleans up any leftover Service Worker from before PWA support was
-// removed (v1.55). Runs on every load; does NOT touch saved progress,
-// only unregisters the stale worker and clears its cached files.
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function (registrations) {
-    registrations.forEach(function (registration) { registration.unregister(); });
-  });
-}
-if (window.caches) {
-  caches.keys().then(function (names) {
-    names.forEach(function (name) { caches.delete(name); });
-  });
-}
+// TerraBlocks v1.57 iOS/Safari memory guard. Godot Web historically declares
+// a very large WebAssembly maximum; Mobile Safari can kill the WebContent
+// process under memory pressure even when actual game state is tiny. Clamp
+// only the declared maximum to 256 MiB (4096 WASM pages). If Godot ever needs
+// a larger initial heap, preserve that initial size rather than creating an
+// invalid descriptor.
+(function(){
+  try {
+    var NativeMemory = WebAssembly.Memory;
+    var MAX_PAGES = 4096;
+    WebAssembly.Memory = function(desc){
+      if (desc && typeof desc === 'object') {
+        var copy = Object.assign({}, desc);
+        var initial = Number(copy.initial || 0);
+        if (typeof copy.maximum === 'number' && copy.maximum > MAX_PAGES) {
+          copy.maximum = Math.max(MAX_PAGES, initial);
+        }
+        return new NativeMemory(copy);
+      }
+      return new NativeMemory(desc);
+    };
+    WebAssembly.Memory.prototype = NativeMemory.prototype;
+  } catch (e) { console.warn('TerraBlocks WASM memory guard unavailable', e); }
+})();
 </script>
 	</head>
 	<body>
@@ -125,7 +136,7 @@ if (window.caches) {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":20317544,"index.wasm":37896978},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":19146520,"index.wasm":37896978},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

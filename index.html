@@ -119,9 +119,10 @@ body {
 })();
 </script>
 <script>
-// MonsterBlocks V1.265 Web score-flight compositor layer.
-// Thermal purpose: keep the smooth post-placement bubble outside the Godot/WebGL
-// presentation loop so a static game scene can return to true idle immediately.
+// MonsterBlocks V1.267 Web score-flight compositor layer.
+// Thermal purpose: preserve the smooth post-placement bubble while keeping the
+// browser compositing surface tightly bounded around the moving bubbles instead
+// of allocating a full-screen fixed layer for every placement.
 (function(){
   'use strict';
   var generation = 0;
@@ -150,47 +151,43 @@ body {
       var sy = rect.height / logicalH;
       var scale = Math.min(sx, sy);
       var duration = Math.max(250, Number(data.duration_ms) || 1750);
+      var totalW = Math.max(1, Number(data.total_width) || 46) * sx;
+      var gap = Math.max(0, Number(data.gap) || 8) * sx;
+      var startX = rect.left + (Number(data.start_x) || logicalW * 0.5) * sx;
+      var startY = rect.top + (Number(data.start_y) || logicalH * 0.5) * sy;
+      var targetX = rect.left + (Number(data.target_x) || 130) * sx;
+      var targetY = rect.top + (Number(data.target_y) || 105) * sy;
+      var maxBubbleH = 58 * sy;
+      var pad = Math.max(6, 10 * scale);
 
-      var layer = document.createElement('div');
-      root = layer;
-      layer.setAttribute('aria-hidden', 'true');
-      Object.assign(layer.style, {
+      // V1.267: this group itself is the only overlay surface. Its raster/composite
+      // bounds are close to the bubbles instead of the entire game viewport.
+      var group = document.createElement('div');
+      root = group;
+      group.setAttribute('aria-hidden', 'true');
+      Object.assign(group.style, {
         position: 'fixed',
-        left: rect.left + 'px',
-        top: rect.top + 'px',
-        width: rect.width + 'px',
-        height: rect.height + 'px',
-        overflow: 'hidden',
+        left: (startX - totalW * 0.5 - pad) + 'px',
+        top: (startY - maxBubbleH * 0.5 - pad) + 'px',
+        width: (totalW + pad * 2) + 'px',
+        height: (maxBubbleH + pad * 2) + 'px',
+        boxSizing: 'border-box',
+        paddingLeft: pad + 'px',
+        paddingRight: pad + 'px',
+        display: 'flex',
+        gap: gap + 'px',
+        alignItems: 'center',
+        overflow: 'visible',
         pointerEvents: 'none',
         userSelect: 'none',
         touchAction: 'none',
         zIndex: '2147483000',
-        contain: 'layout paint style',
-      });
-
-      var group = document.createElement('div');
-      var totalW = Math.max(1, Number(data.total_width) || 46) * sx;
-      var gap = Math.max(0, Number(data.gap) || 8) * sx;
-      var startX = (Number(data.start_x) || logicalW * 0.5) * sx;
-      var startY = (Number(data.start_y) || logicalH * 0.5) * sy;
-      var targetX = (Number(data.target_x) || 130) * sx;
-      var targetY = (Number(data.target_y) || 105) * sy;
-      Object.assign(group.style, {
-        position: 'absolute',
-        left: (startX - totalW * 0.5) + 'px',
-        top: startY + 'px',
-        height: '1px',
-        display: 'flex',
-        gap: gap + 'px',
-        alignItems: 'flex-start',
         opacity: '0',
         willChange: 'transform, opacity',
         transform: 'translate3d(0,0,0)',
+        contain: 'layout style',
       });
-      layer.appendChild(group);
-      // Attach before starting Web Animations. This keeps Safari's document timeline
-      // behavior deterministic and avoids a first-frame flash on detached elements.
-      document.body.appendChild(layer);
+      document.body.appendChild(group);
 
       var light = !!data.light;
       var textColor = String(data.text_color || (light ? '#111a22' : '#eef5fb'));
@@ -206,7 +203,6 @@ body {
           flex: '0 0 auto',
           width: width + 'px',
           height: height + 'px',
-          marginTop: (-height * 0.5) + 'px',
           boxSizing: 'border-box',
           borderRadius: Math.max(7, 16 * scale) + 'px',
           border: Math.max(1, scale) + 'px solid ' + accent,
@@ -276,7 +272,7 @@ body {
         fill: 'forwards'
       });
       flight.onfinish = function(){
-        if (root === layer && myGeneration === generation) clear();
+        if (root === group && myGeneration === generation) clear();
       };
       return true;
     } catch (e) {
@@ -290,177 +286,6 @@ body {
   window.__monsterblocks_score_fx_clear = clear;
 })();
 </script>
-<script>
-// MonsterBlocks V1.266 Web regular-monster eye compositor.
-// Pupils/blinks/eye-roll stay smooth in the browser compositor while the Godot
-// WebGL scene remains idle. GDScript continues to own subjects and blink timing.
-(function(){
-  'use strict';
-  var layer = null;
-  var currentPayload = null;
-  var subjects = new Map();
-  var resizeBound = false;
-
-  function canvasInfo(){
-    var canvas = document.getElementById('canvas') || document.querySelector('canvas');
-    if (!canvas) return null;
-    var rect = canvas.getBoundingClientRect();
-    if (!(rect.width > 1 && rect.height > 1)) return null;
-    return {canvas:canvas, rect:rect};
-  }
-
-  function clear(){
-    if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
-    layer = null;
-    subjects.clear();
-    currentPayload = null;
-  }
-
-  function makeEye(parent, centerX, centerY, lidX, lidY, data, sx, sy, scale, side){
-    var pupilRadius = Math.max(1, Number(data.pupil_radius)||1.5) * scale;
-    var pupil = document.createElement('div');
-    Object.assign(pupil.style, {
-      position:'absolute',
-      left:(centerX*sx - pupilRadius)+'px',
-      top:(centerY*sy - pupilRadius)+'px',
-      width:(pupilRadius*2)+'px',
-      height:(pupilRadius*2)+'px',
-      borderRadius:'50%',
-      background:'rgba(5,5,8,1)',
-      pointerEvents:'none',
-      willChange:'transform',
-      transform:'translate3d(0,0,0)'
-    });
-    pupil.dataset.orbit = String(Math.max(0, Number(data.orbit_radius)||0) * scale);
-    parent.appendChild(pupil);
-
-    var halfWidth = Math.max(1, Number(data.lid_half_width)||2) * scale;
-    var maxThickness = Math.max(1, Number(data.lid_max_thickness)||2) * scale;
-    var lid = document.createElement('div');
-    Object.assign(lid.style, {
-      position:'absolute',
-      left:(lidX*sx - halfWidth)+'px',
-      top:(lidY*sy - maxThickness*0.5)+'px',
-      width:(halfWidth*2)+'px',
-      height:maxThickness+'px',
-      borderRadius:Math.max(1,maxThickness*0.45)+'px',
-      background:String(data.eyelid_color || '#16121d'),
-      pointerEvents:'none',
-      transformOrigin:'50% 50%',
-      transform:'scaleY(0.001)',
-      willChange:'transform'
-    });
-    var crease = document.createElement('div');
-    Object.assign(crease.style, {
-      position:'absolute', left:'8%', right:'8%', top:'50%', height:Math.max(1,scale)+'px',
-      transform:'translateY(-50%)', background:'rgba(6,5,8,0.90)', opacity:'0',
-      pointerEvents:'none'
-    });
-    lid.appendChild(crease);
-    parent.appendChild(lid);
-    return {pupil:pupil, lid:lid, crease:crease, side:side};
-  }
-
-  function rebuild(){
-    if (!currentPayload || !Array.isArray(currentPayload.subjects)) return false;
-    var info = canvasInfo();
-    if (!info) return false;
-    if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
-    subjects.clear();
-    var rect = info.rect;
-    var logicalW = Math.max(1, Number(currentPayload.logical_w)||540);
-    var logicalH = Math.max(1, Number(currentPayload.logical_h)||960);
-    var sx = rect.width/logicalW, sy = rect.height/logicalH, scale = Math.min(sx,sy);
-    layer = document.createElement('div');
-    layer.setAttribute('aria-hidden','true');
-    Object.assign(layer.style, {
-      position:'fixed', left:rect.left+'px', top:rect.top+'px', width:rect.width+'px', height:rect.height+'px',
-      overflow:'hidden', pointerEvents:'none', userSelect:'none', touchAction:'none',
-      zIndex:'2147482000', contain:'layout paint style'
-    });
-    currentPayload.subjects.forEach(function(data){
-      var id = String(data.id || '');
-      if (!id) return;
-      var subject = document.createElement('div');
-      subject.dataset.monsterId = id;
-      Object.assign(subject.style,{position:'absolute',left:'0',top:'0',width:'100%',height:'100%',pointerEvents:'none'});
-      var left = makeEye(subject, Number(data.lp_x)||0, Number(data.lp_y)||0, Number(data.le_x)||0, Number(data.le_y)||0, data, sx, sy, scale, 'left');
-      var right = makeEye(subject, Number(data.rp_x)||0, Number(data.rp_y)||0, Number(data.re_x)||0, Number(data.re_y)||0, data, sx, sy, scale, 'right');
-      layer.appendChild(subject);
-      subjects.set(id,{el:subject,left:left,right:right});
-    });
-    document.body.appendChild(layer);
-    return subjects.size > 0;
-  }
-
-  function sync(payload){
-    try {
-      currentPayload = payload || null;
-      if (!currentPayload || !Array.isArray(currentPayload.subjects) || currentPayload.subjects.length===0){ clear(); return true; }
-      if (!resizeBound){
-        resizeBound = true;
-        window.addEventListener('resize', function(){ if (currentPayload) rebuild(); }, {passive:true});
-        window.addEventListener('orientationchange', function(){ setTimeout(function(){ if(currentPayload) rebuild(); }, 80); }, {passive:true});
-      }
-      return rebuild();
-    } catch(e){ console.warn('MonsterBlocks monster eye sync failed', e); clear(); return false; }
-  }
-
-  function blink(ids){
-    try {
-      if (!layer || !Array.isArray(ids)) return false;
-      ids.forEach(function(id){
-        var subject = subjects.get(String(id));
-        if (!subject) return;
-        [subject.left,subject.right].forEach(function(eye){
-          eye.lid.getAnimations().forEach(function(a){a.cancel();});
-          eye.crease.getAnimations().forEach(function(a){a.cancel();});
-          eye.lid.animate([
-            {transform:'scaleY(0.001)',offset:0},
-            {transform:'scaleY(1)',offset:0.30},
-            {transform:'scaleY(1)',offset:0.56},
-            {transform:'scaleY(0.001)',offset:1}
-          ],{duration:180,easing:'ease-in-out'});
-          eye.crease.animate([
-            {opacity:0,offset:0},{opacity:0,offset:0.46},{opacity:1,offset:0.62},{opacity:0,offset:1}
-          ],{duration:180,easing:'ease-in-out'});
-        });
-      });
-      return true;
-    } catch(e){ return false; }
-  }
-
-  function roll(duration){
-    try {
-      if (!layer) return false;
-      var ms = Math.max(120, Number(duration)||600);
-      subjects.forEach(function(subject){
-        [subject.left,subject.right].forEach(function(eye){
-          var r = Math.max(0, Number(eye.pupil.dataset.orbit)||0);
-          if (!(r>0)) return;
-          eye.pupil.getAnimations().forEach(function(a){a.cancel();});
-          var frames=[{transform:'translate3d(0,0,0)',offset:0},{transform:'translate3d('+r+'px,0,0)',offset:0.18}];
-          var segments=16;
-          for(var i=1;i<=segments;i++){
-            var t=i/segments;
-            var angle=t*Math.PI*2;
-            frames.push({transform:'translate3d('+(Math.cos(angle)*r)+'px,'+(Math.sin(angle)*r)+'px,0)',offset:0.18+t*0.64});
-          }
-          frames.push({transform:'translate3d(0,0,0)',offset:1});
-          eye.pupil.animate(frames,{duration:ms,easing:'linear'});
-        });
-      });
-      return true;
-    } catch(e){ return false; }
-  }
-
-  window.__monsterblocks_monster_eyes_sync = sync;
-  window.__monsterblocks_monster_eyes_blink = blink;
-  window.__monsterblocks_monster_eyes_roll = roll;
-  window.__monsterblocks_monster_eyes_clear = clear;
-})();
-</script>
-
 	</head>
 	<body>
 		<canvas id="canvas">
@@ -479,7 +304,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":20663164,"index.wasm":37900721},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":20659500,"index.wasm":37900721},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

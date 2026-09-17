@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<title>MonsterBlocks</title>
+		<title>Block Jai</title>
 		<style>
 html, body, #canvas {
 	margin: 0;
@@ -93,7 +93,7 @@ body {
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 <script>
-// MonsterBlocks v1.59 iOS/Safari memory guard. Godot Web historically declares
+// Block Jai v1.59 iOS/Safari memory guard. Godot Web historically declares
 // a very large WebAssembly maximum; Mobile Safari can kill the WebContent
 // process under memory pressure even when actual game state is tiny. Clamp
 // only the declared maximum to 256 MiB (4096 WASM pages). If Godot ever needs
@@ -115,11 +115,11 @@ body {
       return new NativeMemory(desc);
     };
     WebAssembly.Memory.prototype = NativeMemory.prototype;
-  } catch (e) { console.warn('MonsterBlocks WASM memory guard unavailable', e); }
+  } catch (e) { console.warn('Block Jai WASM memory guard unavailable', e); }
 })();
 </script>
 <script>
-// MonsterBlocks V1.267 Web score-flight compositor layer.
+// Block Jai V1.267 Web score-flight compositor layer.
 // Thermal purpose: preserve the smooth post-placement bubble while keeping the
 // browser compositing surface tightly bounded around the moving bubbles instead
 // of allocating a full-screen fixed layer for every placement.
@@ -276,14 +276,14 @@ body {
       };
       return true;
     } catch (e) {
-      console.warn('MonsterBlocks score compositor unavailable', e);
+      console.warn('Block Jai score compositor unavailable', e);
       clear();
       return false;
     }
   }
 
-  window.__monsterblocks_score_fx = scoreFx;
-  window.__monsterblocks_score_fx_clear = clear;
+  window.__block_jai_score_fx = scoreFx;
+  window.__block_jai_score_fx_clear = clear;
 })();
 </script>
 	</head>
@@ -304,7 +304,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":20682088,"index.wasm":37900721},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":20576292,"index.wasm":37896978},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
